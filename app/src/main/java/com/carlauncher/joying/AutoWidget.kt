@@ -37,7 +37,7 @@ fun AutoWidget(
 
             when {
 
-                // GPS SIN SEÑAL
+                // GPS SIN SEÑAL.
                 !gps.gpsAvailable -> {
 
                     if (stoppedSince == 0L) {
