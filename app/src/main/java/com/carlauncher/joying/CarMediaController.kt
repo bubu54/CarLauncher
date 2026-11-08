@@ -1,3 +1,4 @@
+
 package com.carlauncher.joying
 
 import android.content.ComponentName
@@ -21,7 +22,8 @@ data class CarMediaData(
     val artwork: android.graphics.Bitmap? = null,
     val hasSession: Boolean = false,
     val hasAccess: Boolean = false,
-    val controller: MediaController? = null
+    val controller: MediaController? = null,
+    val packageName: String = ""
 )
 
 class CarMediaController(private val context: Context) {
@@ -50,6 +52,7 @@ class CarMediaController(private val context: Context) {
         }
 
         return try {
+
             val manager =
                 context.getSystemService(Context.MEDIA_SESSION_SERVICE)
                         as MediaSessionManager
@@ -60,42 +63,75 @@ class CarMediaController(private val context: Context) {
                 return CarMediaData(hasAccess = true)
             }
 
-            // Priorizar la sesión que está reproduciendo.
-            val controller = sessions.firstOrNull {
-                it.playbackState?.state == PlaybackState.STATE_PLAYING
-            } ?: sessions.first()
+            // Priorizar la sesión que realmente está reproduciendo.
+            val controller =
+                sessions.firstOrNull {
+                    it.playbackState?.state == PlaybackState.STATE_PLAYING
+                }
+                // Si ninguna reproduce, priorizar una sesión con metadatos.
+                    ?: sessions.firstOrNull {
+                        !it.metadata?.getString(
+                            MediaMetadata.METADATA_KEY_TITLE
+                        ).isNullOrBlank()
+                    }
+                    ?: sessions.first()
 
             val metadata = controller.metadata
             val playback = controller.playbackState
 
             val duration =
-                metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
+                metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)
+                    ?: 0L
 
-            val position = playback?.position?.coerceAtLeast(0L) ?: 0L
+            // Estimar la posición entre actualizaciones del reproductor.
+            var position = playback?.position ?: 0L
 
+            if (playback?.state == PlaybackState.STATE_PLAYING) {
+                val updateTime = playback.lastPositionUpdateTime
+
+                if (updateTime > 0L) {
+                    position += SystemClock.elapsedRealtime() - updateTime
+                }
+            }
+
+            position = position.coerceAtLeast(0L)
+
+            if (duration > 0L) {
+                position = position.coerceAtMost(duration)
+            }
+
+            // Buscar la carátula en los campos habituales.
             val artwork =
                 metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART)
                     ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+                    ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
 
             CarMediaData(
                 title = metadata?.getString(
                     MediaMetadata.METADATA_KEY_TITLE
-                ) ?: "",
+                ).orEmpty(),
+
                 artist = metadata?.getString(
                     MediaMetadata.METADATA_KEY_ARTIST
                 ) ?: metadata?.getString(
                     MediaMetadata.METADATA_KEY_ALBUM_ARTIST
-                ) ?: "",
+                ).orEmpty(),
+
                 album = metadata?.getString(
                     MediaMetadata.METADATA_KEY_ALBUM
-                ) ?: "",
+                ).orEmpty(),
+
                 duration = duration,
                 position = position,
-                isPlaying = playback?.state == PlaybackState.STATE_PLAYING,
+
+                isPlaying = playback?.state ==
+                        PlaybackState.STATE_PLAYING,
+
                 artwork = artwork,
                 hasSession = true,
                 hasAccess = true,
-                controller = controller
+                controller = controller,
+                packageName = controller.packageName
             )
 
         } catch (e: SecurityException) {
