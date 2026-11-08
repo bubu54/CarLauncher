@@ -156,6 +156,22 @@ fun MainLauncherScreen() {
         mutableStateOf(false)
     }
 
+    // CONTROL GPS COMPARTIDO
+    val gpsController = rememberCarGpsController()
+    val gpsData = gpsController.data
+
+    //API TIEMPO
+    val weatherController = rememberWeatherController()
+    val weatherData = weatherController.data
+
+    LaunchedEffect(gpsData.latitude, gpsData.longitude) {
+        weatherController.updateLocation(
+            gpsData.latitude,
+            gpsData.longitude
+        )
+    }
+
+    // CONTROL DEL REPRODUCTOR
     val (mediaController, mediaData) = rememberCarMedia()
 
     val navigationData by
@@ -172,7 +188,10 @@ fun MainLauncherScreen() {
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
 
-            TopBar()
+            TopBar(
+                weatherData = weatherData,
+                weatherController = weatherController
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -194,12 +213,12 @@ fun MainLauncherScreen() {
 
                 CentralWidgetPanel(
                     widget = selectedWidget,
-                    onClick = {
-                        showWidgetSelector = true
-                    },
+                    onClick = { showWidgetSelector = true },
                     mediaData = mediaData,
                     mediaController = mediaController,
                     navigationData = navigationData,
+                    gpsData = gpsData,
+                    gpsController = gpsController,
                     modifier = Modifier.weight(1f)
                 )
 
@@ -458,9 +477,14 @@ fun MusicInfoWidget(
 // --------------------------------------------------
 
 @Composable
-fun TopBar() {
+fun TopBar(
+    weatherData: WeatherData,
+    weatherController: WeatherController
+) {
 
-    val context = LocalContext.current
+    var showWeatherSettings by remember {
+        mutableStateOf(false)
+    }
 
     Row(
         modifier = Modifier
@@ -471,39 +495,55 @@ fun TopBar() {
 
         Text(
             text = "GPS  ●",
-            color = Blue,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.width(20.dp))
-
-        Text(
-            text = "METEO  --°",
             color = White,
             fontSize = 12.sp
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(20.dp))
+
+        val weatherText = if (weatherData.temperature != null) {
+            "${weatherEmoji(weatherData.icon)} " +
+                    "${weatherData.temperature.toInt()}° " +
+                    weatherData.city
+        } else {
+            "METEO --°"
+        }
+
+        Text(
+            text = weatherText,
+            color = White,
+            fontSize = 12.sp,
+            maxLines = 1,
+            modifier = Modifier.clickable {
+                weatherController.refresh()
+            }
+        )
+
+        Spacer(Modifier.weight(1f))
 
         Text(
             text = "4G",
-            color = Secondary,
+            color = White,
             fontSize = 12.sp
         )
 
-        Spacer(modifier = Modifier.width(18.dp))
+        Spacer(Modifier.width(18.dp))
 
         Text(
             text = "⚙",
-            color = Blue,
-            fontSize = 19.sp,
+            color = White,
             modifier = Modifier.clickable {
-                Toast.makeText(
-                    context,
-                    "Configuración: pendiente",
-                    Toast.LENGTH_SHORT
-                ).show()
+                showWeatherSettings = true
+            }
+        )
+    }
+
+    if (showWeatherSettings) {
+        WeatherSettingsDialog(
+            controller = weatherController,
+            weatherData = weatherData,
+            onDismiss = {
+                showWeatherSettings = false
             }
         )
     }
@@ -572,6 +612,8 @@ fun CentralWidgetPanel(
     mediaData: CarMediaData,
     mediaController: CarMediaController,
     navigationData: CarNavigationData,
+    gpsData: CarGpsData,
+    gpsController: CarGpsController,
     modifier: Modifier = Modifier
 ) {
 
@@ -585,7 +627,9 @@ fun CentralWidgetPanel(
                 BlueBorder,
                 RoundedCornerShape(20.dp)
             )
-            .clickable { onClick() },
+            .clickable {
+                onClick()
+            },
         contentAlignment = Alignment.Center
     ) {
 
@@ -641,9 +685,10 @@ fun CentralWidgetPanel(
                     }
                 }
 
-                "VELOCÍMETRO" -> {
-                    GpsSpeedometer()
-                }
+                "VELOCÍMETRO" -> GpsSpeedometer(
+                    gpsData = gpsData,
+                    gpsController = gpsController
+                )
 
                 "BRÚJULA" -> {
                     CompassWidget()
@@ -662,28 +707,11 @@ fun CentralWidgetPanel(
                     )
                 }
 
-                "AUTO" -> {
-                    Text(
-                        "AUTO",
-                        color = Blue,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(15.dp))
-
-                    Text(
-                        "ESPERANDO GPS",
-                        color = White,
-                        fontSize = 20.sp
-                    )
-
-                    Text(
-                        "Funcionamiento automático",
-                        color = Secondary,
-                        fontSize = 13.sp
-                    )
-                }
+                "AUTO" -> AutoWidget(
+                    gpsController = gpsController,
+                    mediaData = mediaData,
+                    mediaController = mediaController
+                )
             }
         }
     }
@@ -1205,175 +1233,13 @@ fun PilotClassicClock() {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun GpsSpeedometer() {
-
+fun GpsSpeedometer(
+    gpsData: CarGpsData,
+    gpsController: CarGpsController
+) {
     val context = LocalContext.current
-    val activity = context as ComponentActivity
 
-    val preferences = remember {
-        context.getSharedPreferences(
-            "car_launcher_data",
-            android.content.Context.MODE_PRIVATE
-        )
-    }
-
-    var hasPermission by remember {
-        mutableStateOf(
-            activity.checkSelfPermission(
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-
-    var speedKmh by remember {
-        mutableFloatStateOf(0f)
-    }
-
-    var gpsAvailable by remember {
-        mutableStateOf(false)
-    }
-
-    var tripKm by remember {
-        mutableFloatStateOf(
-            preferences.getFloat("trip_km", 0f)
-        )
-    }
-
-    var lastLocation by remember {
-        mutableStateOf<Location?>(null)
-    }
-
-    var lastValidLocationTime by remember {
-        mutableStateOf(0L)
-    }
-
-    val permissionLauncher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { granted ->
-            hasPermission = granted
-        }
-
-    // SOLICITAR PERMISO GPS
-    LaunchedEffect(Unit) {
-        if (!hasPermission) {
-            permissionLauncher.launch(
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        }
-    }
-
-    // CONEXIÓN GPS
-    DisposableEffect(hasPermission) {
-
-        if (!hasPermission) {
-            onDispose { }
-        } else {
-
-            val locationManager =
-                context.getSystemService(
-                    android.content.Context.LOCATION_SERVICE
-                ) as LocationManager
-
-            val listener = object : LocationListener {
-
-                override fun onLocationChanged(location: Location) {
-
-                    val now = System.currentTimeMillis()
-
-                    // RECHAZAR POSICIONES ANTIGUAS
-                    if (now - location.time > 10000) return
-
-                    // RECHAZAR POSICIONES POCO PRECISAS
-                    if (location.hasAccuracy() &&
-                        location.accuracy > 50f
-                    ) return
-
-                    // RECHAZAR SALTOS DE VELOCIDAD POCO FIABLES
-                    if (!location.hasSpeed()) return
-
-                    val speedMs = location.speed
-
-                    if (speedMs < 0f || speedMs > 100f) return
-
-                    val currentSpeed = speedMs * 3.6f
-
-                    // ACTUALIZAR VELOCIDAD
-                    speedKmh = currentSpeed
-                    gpsAvailable = true
-                    lastValidLocationTime = now
-
-                    // CALCULAR DISTANCIA PARCIAL
-                    val previous = lastLocation
-
-                    if (previous != null) {
-
-                        val distanceMeters =
-                            previous.distanceTo(location)
-
-                        val elapsedSeconds =
-                            (location.time - previous.time) / 1000f
-
-                        val plausibleDistance =
-                            distanceMeters > 0.5f &&
-                                    distanceMeters < 150f &&
-                                    elapsedSeconds > 0f &&
-                                    elapsedSeconds <= 30f
-
-                        // No acumular deriva GPS cuando el coche está parado
-                        if (plausibleDistance &&
-                            currentSpeed > 2f
-                        ) {
-
-                            tripKm += distanceMeters / 1000f
-
-                            preferences.edit()
-                                .putFloat("trip_km", tripKm)
-                                .apply()
-                        }
-                    }
-
-                    lastLocation = Location(location)
-                }
-            }
-
-            try {
-                if (locationManager.isProviderEnabled(
-                        LocationManager.GPS_PROVIDER
-                    )
-                ) {
-                    locationManager.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER,
-                        1000L,
-                        1f,
-                        listener,
-                        Looper.getMainLooper()
-                    )
-                }
-            } catch (e: SecurityException) {
-                gpsAvailable = false
-            }
-
-            onDispose {
-                locationManager.removeUpdates(listener)
-            }
-        }
-    }
-
-    // DETECTAR PÉRDIDA DE DATOS GPS
-    LaunchedEffect(lastValidLocationTime) {
-        if (lastValidLocationTime != 0L) {
-            kotlinx.coroutines.delay(12000)
-
-            if (System.currentTimeMillis() -
-                lastValidLocationTime > 12000
-            ) {
-                gpsAvailable = false
-            }
-        }
-    }
-
-    val sportMode = speedKmh >= 120f
+    val sportMode = gpsData.speedKmh >= 120f
 
     val speedColor = if (sportMode) {
         Color(0xFFFF3B45)
@@ -1390,11 +1256,7 @@ fun GpsSpeedometer() {
         // CABECERA
         Text(
             text = if (sportMode) "SPORT" else "GPS SPEED",
-            color = if (sportMode) {
-                Color(0xFFFF3B45)
-            } else {
-                Blue
-            },
+            color = if (sportMode) Color(0xFFFF3B45) else Blue,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 3.sp
@@ -1406,10 +1268,9 @@ fun GpsSpeedometer() {
         Row(
             verticalAlignment = Alignment.Bottom
         ) {
-
             Text(
-                text = if (gpsAvailable) {
-                    speedKmh.toInt().toString()
+                text = if (gpsData.gpsAvailable) {
+                    gpsData.speedKmh.toInt().toString()
                 } else {
                     "--"
                 },
@@ -1435,14 +1296,10 @@ fun GpsSpeedometer() {
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
-                //.clickable { }
                 .combinedClickable(
-                    onClick = { },
+                    onClick = {},
                     onLongClick = {
-                        tripKm = 0f
-                        preferences.edit()
-                            .putFloat("trip_km", 0f)
-                            .apply()
+                        gpsController.resetTrip()
 
                         Toast.makeText(
                             context,
@@ -1451,10 +1308,12 @@ fun GpsSpeedometer() {
                         ).show()
                     }
                 )
-                .padding(horizontal = 25.dp, vertical = 8.dp),
+                .padding(
+                    horizontal = 25.dp,
+                    vertical = 8.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
             Text(
                 text = "TRIP",
                 color = Blue,
@@ -1467,7 +1326,7 @@ fun GpsSpeedometer() {
                 text = String.format(
                     java.util.Locale.getDefault(),
                     "%.1f km",
-                    tripKm
+                    gpsData.tripKm
                 ),
                 color = White,
                 fontSize = 23.sp
@@ -1485,11 +1344,11 @@ fun GpsSpeedometer() {
         // ESTADO GPS
         Text(
             text = when {
-                !hasPermission -> "PERMISO GPS NECESARIO"
-                gpsAvailable -> "GPS CONECTADO"
+                !gpsData.hasPermission -> "PERMISO GPS NECESARIO"
+                gpsData.gpsAvailable -> "GPS CONECTADO"
                 else -> "ESPERANDO SEÑAL GPS"
             },
-            color = if (gpsAvailable) {
+            color = if (gpsData.gpsAvailable) {
                 Color(0xFF45D483)
             } else {
                 Secondary
@@ -1902,5 +1761,18 @@ fun CompassWidget() {
             fontSize = 10.sp,
             letterSpacing = 1.sp
         )
+    }
+}
+
+fun weatherEmoji(icon: String): String {
+    return when (icon.take(2)) {
+        "01" -> "☀"
+        "02" -> "🌤"
+        "03", "04" -> "☁"
+        "09", "10" -> "🌧"
+        "11" -> "⛈"
+        "13" -> "❄"
+        "50" -> "🌫"
+        else -> "🌡"
     }
 }
