@@ -15,6 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import com.carlauncher.joying.ui.Secondary
+import com.carlauncher.joying.ui.MusicInfoWidget
+import com.carlauncher.joying.ui.GpsSpeedometer
 
 @Composable
 fun AutoWidget(

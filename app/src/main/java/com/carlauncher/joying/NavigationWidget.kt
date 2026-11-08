@@ -12,6 +12,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.carlauncher.joying.ui.Blue
+import com.carlauncher.joying.ui.White
+import com.carlauncher.joying.ui.Secondary
+import com.carlauncher.joying.ui.ButtonBackground
 
 @Composable
 fun NavigationWidget(
