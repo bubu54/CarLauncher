@@ -29,6 +29,8 @@ import com.carlauncher.joying.ui.GpsSpeedometer
 import com.carlauncher.joying.ui.CompassWidget
 import com.carlauncher.joying.NavigationWidget
 import com.carlauncher.joying.AutoWidget
+import com.carlauncher.joying.ui.theme.clocks.PilotClassicClockView
+import com.carlauncher.joying.ui.theme.clocks.SpeedmasterClockView
 
 @Composable
 fun CentralWidgetPanel(
@@ -95,7 +97,9 @@ fun CentralWidgetPanel(
 
                         Spacer(modifier = Modifier.height(5.dp))
 
-                        PilotClassicClock()
+                        //PilotClassicClock()
+                        //PilotClassicClockView()
+                        SpeedmasterClockView()
 
                         Text(
                             text = "AUTOMATIC  ·  LOCAL TIME",
