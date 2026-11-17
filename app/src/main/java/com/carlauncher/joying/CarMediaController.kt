@@ -28,6 +28,10 @@ data class CarMediaData(
 
 class CarMediaController(private val context: Context) {
 
+    /** Si no está vacío, solo se consideran las sesiones de este paquete. */
+    @Volatile
+    var preferredPackage: String = ""
+
     private val notificationManager =
         context.getSystemService(NotificationManager::class.java)
 
@@ -59,22 +63,28 @@ class CarMediaController(private val context: Context) {
 
             val sessions = manager.getActiveSessions(component)
 
-            if (sessions.isEmpty()) {
+            val candidates = if (preferredPackage.isNotBlank()) {
+                sessions.filter { it.packageName == preferredPackage }
+            } else {
+                sessions
+            }
+
+            if (candidates.isEmpty()) {
                 return CarMediaData(hasAccess = true)
             }
 
             // Priorizar la sesión que realmente está reproduciendo.
             val controller =
-                sessions.firstOrNull {
+                candidates.firstOrNull {
                     it.playbackState?.state == PlaybackState.STATE_PLAYING
                 }
                 // Si ninguna reproduce, priorizar una sesión con metadatos.
-                    ?: sessions.firstOrNull {
+                    ?: candidates.firstOrNull {
                         !it.metadata?.getString(
                             MediaMetadata.METADATA_KEY_TITLE
                         ).isNullOrBlank()
                     }
-                    ?: sessions.first()
+                    ?: candidates.first()
 
             val metadata = controller.metadata
             val playback = controller.playbackState

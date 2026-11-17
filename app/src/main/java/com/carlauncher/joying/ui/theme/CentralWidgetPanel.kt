@@ -133,6 +133,7 @@ fun CentralWidgetPanel(
                 }
 
                 "AUTO" -> AutoWidget(
+                    navigationData = navigationData,
                     gpsController = gpsController,
                     mediaData = mediaData,
                     mediaController = mediaController

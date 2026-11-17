@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="false"
@@ -55,6 +56,17 @@
 
         </activity>
 
+        <!-- Se activa desde Ajustes > Sistema > "Iniciar launcher al arrancar" -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
 
     </application>
 
@@ -63,6 +75,25 @@
         <package android:name="com.waze" />
         <package android:name="com.sygic.aura" />
         <package android:name="com.google.android.projection.gearhead" />
+
+        <!-- Detectar apps de navegación y reproductores instalados (Ajustes) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService" />
+        </intent>
+
+        <!-- Cajón de aplicaciones y detección del launcher predeterminado -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
     </queries>
 
 </manifest>

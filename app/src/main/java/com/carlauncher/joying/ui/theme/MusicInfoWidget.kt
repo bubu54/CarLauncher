@@ -1,6 +1,7 @@
 
 package com.carlauncher.joying.ui
 
+import com.carlauncher.joying.LocalLauncherSettings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -32,12 +33,15 @@ fun MusicInfoWidget(
     media: CarMediaData,
     controller: CarMediaController
 ) {
+    val settings = LocalLauncherSettings.current.data
+
     Row(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (settings.showArtwork) {
         // Carátula del álbum.
         Box(
             modifier = Modifier
@@ -65,6 +69,7 @@ fun MusicInfoWidget(
         }
 
         Spacer(modifier = Modifier.width(28.dp))
+        }
 
         Column(
             modifier = Modifier.weight(1f),
@@ -116,6 +121,7 @@ fun MusicInfoWidget(
                 }
 
                 else -> {
+                    if (settings.showSongInfo) {
                     Text(
                         text = media.title.ifBlank {
                             "TÍTULO DESCONOCIDO"
@@ -151,6 +157,7 @@ fun MusicInfoWidget(
                         )
                     }
 
+                    }
                     Spacer(modifier = Modifier.height(22.dp))
 
                     // Barra de progreso informativa.

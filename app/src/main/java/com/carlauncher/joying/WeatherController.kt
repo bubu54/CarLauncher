@@ -46,7 +46,24 @@ class WeatherController(context: Context) {
 
     private var lastRequestTime = 0L
 
-    private val updateInterval = 10 * 60 * 1000L
+    private var updateInterval = 10 * 60 * 1000L
+
+    // Ajustes del launcher
+    private var autoLocation = true
+
+    init {
+        // Última ubicación conocida (se usa si la ubicación automática está desactivada)
+        latitude = preferences.getString("lat", null)?.toDoubleOrNull()
+        longitude = preferences.getString("lon", null)?.toDoubleOrNull()
+    }
+
+    fun setIntervalMinutes(minutes: Int) {
+        updateInterval = minutes.coerceIn(1, 180) * 60_000L
+    }
+
+    fun setAutoLocation(auto: Boolean) {
+        autoLocation = auto
+    }
 
     var data by mutableStateOf(WeatherData())
         private set
@@ -71,20 +88,26 @@ class WeatherController(context: Context) {
     }
 
     /**
-     * Solo se consulta con coordenadas válidas y VIGENTES:
-     * [fixIsFresh] indica que el GPS tiene un fix reciente (no coordenadas antiguas).
+     * Con ubicación automática solo se consulta con coordenadas válidas y VIGENTES
+     * ([fixIsFresh] = el GPS tiene un fix reciente). Sin ubicación automática se usa
+     * la última ubicación guardada.
      */
     fun updateLocation(lat: Double?, lon: Double?, fixIsFresh: Boolean = true) {
-        if (lat == null || lon == null || !fixIsFresh) return
-        if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return
-        if (lat == 0.0 && lon == 0.0) return
 
-        latitude = lat
-        longitude = lon
+        if (autoLocation) {
+            if (lat == null || lon == null || !fixIsFresh) return
+            if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return
+            if (lat == 0.0 && lon == 0.0) return
+
+            latitude = lat
+            longitude = lon
+        } else if (latitude == null || longitude == null) {
+            return
+        }
 
         val now = System.currentTimeMillis()
 
-        // Sin API key no hay nada que pedir (evita refrescar en cada fix GPS)
+        // Sin API key no hay nada que pedir (evita refrescar continuamente)
         if (apiKey.isNotBlank() && now - lastRequestTime >= updateInterval) {
             refresh()
         }
@@ -111,8 +134,11 @@ class WeatherController(context: Context) {
         }
 
         requestJob?.cancel()
-
         lastRequestTime = System.currentTimeMillis()
+        preferences.edit()
+            .putString("lat", lat.toString())
+            .putString("lon", lon.toString())
+            .apply()
 
         requestJob = scope.launch {
 
@@ -300,3 +326,11 @@ fun rememberWeatherController(): WeatherController {
 
 
 }
+
+/** Formatea una temperatura en °C o °F según el ajuste del launcher. */
+fun temperatureText(celsius: Double, fahrenheit: Boolean): String =
+    if (fahrenheit) {
+        "${(celsius * 9.0 / 5.0 + 32.0).toInt()}°F"
+    } else {
+        "${celsius.toInt()}°"
+    }

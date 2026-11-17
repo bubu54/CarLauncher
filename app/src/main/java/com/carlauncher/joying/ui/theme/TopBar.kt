@@ -10,16 +10,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.carlauncher.joying.*
-import com.carlauncher.joying.ui.WeatherSettingsDialog
 
 @Composable
 fun TopBar(
     weatherData: WeatherData,
     weatherController: WeatherController,
-    gpsAvailable: Boolean = false
+    gpsAvailable: Boolean = false,
+    onOpenSettings: () -> Unit = {}
 ) {
 
     val context = androidx.compose.ui.platform.LocalContext.current
+    val settings = LocalLauncherSettings.current.data
     var connectivity by remember { mutableStateOf(ConnectionType.NONE) }
 
     DisposableEffect(Unit) {
@@ -63,10 +64,6 @@ fun TopBar(
     }
 
 
-    var showWeatherSettings by remember {
-        mutableStateOf(false)
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -84,12 +81,13 @@ fun TopBar(
 
         val weatherText = if (weatherData.temperature != null) {
             "${weatherEmoji(weatherData.icon)} " +
-                    "${weatherData.temperature.toInt()}° " +
+                    "${temperatureText(weatherData.temperature, settings.fahrenheit)} " +
                     weatherData.city
         } else {
             "METEO --°"
         }
 
+        if (settings.weatherEnabled) {
         Text(
             text = weatherText,
             color = White,
@@ -99,6 +97,7 @@ fun TopBar(
                 weatherController.refresh()
             }
         )
+        }
 
         Spacer(Modifier.weight(1f))
 
@@ -106,22 +105,17 @@ fun TopBar(
 
         Spacer(Modifier.width(18.dp))
 
-        Text(
-            text = "⚙",
-            color = White,
-            modifier = Modifier.clickable {
-                showWeatherSettings = true
-            }
-        )
-    }
-
-    if (showWeatherSettings) {
-        WeatherSettingsDialog(
-            controller = weatherController,
-            weatherData = weatherData,
-            onDismiss = {
-                showWeatherSettings = false
-            }
-        )
+        Box(
+            modifier = Modifier
+                .size(width = 48.dp, height = 38.dp)
+                .clickable { onOpenSettings() },
+            contentAlignment = Alignment.Center
+        ) {
+            SettingsIcon(
+                kind = SettingsIconKind.GEAR,
+                color = White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }

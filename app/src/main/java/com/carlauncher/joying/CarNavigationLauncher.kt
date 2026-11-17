@@ -31,7 +31,7 @@ object CarNavigationLauncher {
         )
     }
 
-    private fun openApp(
+    fun openApp(
         context: Context,
         packageName: String,
         appName: String
@@ -113,5 +113,25 @@ object CarNavigationLauncher {
 
     fun openAndroidAuto(context: Context) {
         openApp(context, "com.google.android.projection.gearhead", "Android Auto")
+    }
+
+    /** Abre la app indicada; si está vacía o no existe, la primera disponible. */
+    fun openPreferred(context: Context, packageName: String) {
+        if (packageName.isNotBlank()) {
+            val pm = context.packageManager
+
+            if (pm.getLaunchIntentForPackage(packageName) != null) {
+                val label = try {
+                    pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+                } catch (_: Exception) {
+                    packageName
+                }
+
+                openApp(context, packageName, label)
+                return
+            }
+        }
+
+        openFirstAvailable(context)
     }
 }

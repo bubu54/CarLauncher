@@ -10,5 +10,6 @@ data class CarNavigationData(
     val destination: String = "",
     val remainingDistance: String = "",
     val remainingTime: String = "",
-    val arrivalTime: String = ""
+    val arrivalTime: String = "",
+    val source: String = ""
 )

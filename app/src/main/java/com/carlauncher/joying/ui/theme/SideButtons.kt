@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import com.carlauncher.joying.CarNavigationLauncher
+import com.carlauncher.joying.LocalLauncherSettings
 import com.carlauncher.joying.ui.ButtonBackground
 import com.carlauncher.joying.ui.BlueBorder
 import com.carlauncher.joying.ui.White
@@ -30,9 +31,11 @@ import com.carlauncher.joying.ui.White
 @Composable
 fun SideButtons(
     buttons: List<String>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAppsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val launcherSettings = LocalLauncherSettings.current
 
     Column(
         modifier = modifier.fillMaxHeight(),
@@ -52,8 +55,24 @@ fun SideButtons(
                     )
                     .clickable {
                         when (button) {
-                            "NAVEGACIÓN" -> CarNavigationLauncher.openFirstAvailable(context)
+                            "NAVEGACIÓN" -> CarNavigationLauncher.openPreferred(
+                                context,
+                                launcherSettings.data.navApp
+                            )
+                            "MÚSICA" -> {
+                                val pkg = launcherSettings.data.musicApp
+                                if (pkg.isNotBlank()) {
+                                    CarNavigationLauncher.openApp(context, pkg, "reproductor")
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Elige un reproductor en Ajustes › Música",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
                             "TELÉFONO" -> CarNavigationLauncher.openDialer(context)
+                            "APLICACIONES" -> onAppsClick()
                             "ANDROID AUTO" -> CarNavigationLauncher.openAndroidAuto(context)
                             else -> Toast.makeText(
                                 context,
