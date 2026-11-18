@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import com.carlauncher.joying.SystemActions
+import com.carlauncher.joying.ui.theme.themes.launcherBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -72,7 +73,7 @@ fun AppDrawerScreen(onClose: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Background)
+            .launcherBackground()
             // Bloquea los toques hacia el launcher que hay debajo
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

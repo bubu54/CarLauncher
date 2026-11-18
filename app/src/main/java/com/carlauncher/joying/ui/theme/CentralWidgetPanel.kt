@@ -3,7 +3,8 @@ package com.carlauncher.joying.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,13 +30,16 @@ import com.carlauncher.joying.ui.GpsSpeedometer
 import com.carlauncher.joying.ui.CompassWidget
 import com.carlauncher.joying.NavigationWidget
 import com.carlauncher.joying.AutoWidget
-import com.carlauncher.joying.ui.theme.clocks.PilotClassicClockView
-import com.carlauncher.joying.ui.theme.clocks.SpeedmasterClockView
+import com.carlauncher.joying.LocalLauncherSettings
+import com.carlauncher.joying.ui.theme.themes.launcherPanel
+import com.carlauncher.joying.ui.theme.clocks.ClockRegistry
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CentralWidgetPanel(
     widget: String,
     onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
     mediaData: CarMediaData,
     mediaController: CarMediaController,
     navigationData: CarNavigationData,
@@ -46,16 +50,11 @@ fun CentralWidgetPanel(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Panel)
-            .border(
-                1.dp,
-                BlueBorder,
-                RoundedCornerShape(20.dp)
-            )
-            .clickable {
-                onClick()
-            },
+            .launcherPanel(RoundedCornerShape(20.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -82,34 +81,30 @@ fun CentralWidgetPanel(
                 }
 
                 "RELOJ" -> {
+                    val clock = ClockRegistry.byId(LocalLauncherSettings.current.data.clockId)
+
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "SPEEDMASTER",
+                            text = clock.name,
                             color = Blue,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 2.sp
                         )
-
                         Spacer(modifier = Modifier.height(5.dp))
-
-                        //PilotClassicClock()
-                        //PilotClassicClockView()
-                        SpeedmasterClockView()
-
+                        clock.content()
                         Text(
-                            text = "AUTOMATIC  ·  LOCAL TIME",
+                            text = clock.caption,
                             color = Secondary,
                             fontSize = 10.sp,
                             letterSpacing = 1.sp
                         )
                     }
                 }
-
                 "VELOCÍMETRO" -> GpsSpeedometer(
                     gpsData = gpsData,
                     gpsController = gpsController

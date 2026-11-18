@@ -28,6 +28,8 @@ data class WeatherData(
     val lastUpdate: Long = 0L
 )
 
+private const val MAX_SAVED_AGE_MS = 60 * 60 * 1000L
+
 class WeatherController(context: Context) {
 
     private val appContext = context.applicationContext
@@ -65,8 +67,47 @@ class WeatherController(context: Context) {
         autoLocation = auto
     }
 
-    var data by mutableStateOf(WeatherData())
+    // Se recupera el último dato guardado (si es reciente) para mostrarlo al arrancar
+    var data by mutableStateOf(loadSavedWeather())
         private set
+
+    private var gotFreshFix = false
+
+    private fun loadSavedWeather(): WeatherData {
+        val savedAt = preferences.getLong("w_time", 0L)
+        val temperature = preferences.getString("w_temp", null)?.toDoubleOrNull()
+        val age = System.currentTimeMillis() - savedAt
+
+        if (savedAt == 0L || temperature == null || age !in 0..MAX_SAVED_AGE_MS) {
+            return WeatherData()
+        }
+
+        return WeatherData(
+            temperature = temperature,
+            description = preferences.getString("w_desc", "") ?: "",
+            icon = preferences.getString("w_icon", "") ?: "",
+            city = preferences.getString("w_city", "") ?: "",
+            lastUpdate = savedAt
+        )
+    }
+
+    private fun saveWeather(weather: WeatherData) {
+        val temperature = weather.temperature ?: return
+
+        preferences.edit()
+            .putString("w_temp", temperature.toString())
+            .putString("w_desc", weather.description)
+            .putString("w_icon", weather.icon)
+            .putString("w_city", weather.city)
+            .putLong("w_time", weather.lastUpdate)
+            .apply()
+    }
+
+    private fun distanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val out = FloatArray(1)
+        android.location.Location.distanceBetween(lat1, lon1, lat2, lon2, out)
+        return out[0] / 1000.0
+    }
 
     val apiKey: String
         get() = preferences.getString("api_key", "") ?: ""
@@ -88,22 +129,40 @@ class WeatherController(context: Context) {
     }
 
     /**
-     * Con ubicación automática solo se consulta con coordenadas válidas y VIGENTES
-     * ([fixIsFresh] = el GPS tiene un fix reciente). Sin ubicación automática se usa
-     * la última ubicación guardada.
+     * Actualiza la ubicación y, si toca (según el intervalo configurado), consulta el tiempo.
+     *
+     * - Con un fix GPS válido y reciente ([fixIsFresh]) se usa esa posición.
+     * - Si todavía no hay fix (arranque, interior...) se usa la ÚLTIMA ubicación guardada,
+     *   de modo que el tiempo aparece sin esperar al GPS.
+     * - Con la ubicación automática desactivada solo se usa la ubicación guardada.
      */
     fun updateLocation(lat: Double?, lon: Double?, fixIsFresh: Boolean = true) {
 
-        if (autoLocation) {
-            if (lat == null || lon == null || !fixIsFresh) return
-            if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return
-            if (lat == 0.0 && lon == 0.0) return
+        if (autoLocation && lat != null && lon != null && fixIsFresh &&
+            lat in -90.0..90.0 && lon in -180.0..180.0 &&
+            !(lat == 0.0 && lon == 0.0)
+        ) {
+            val previousLat = latitude
+            val previousLon = longitude
 
             latitude = lat
             longitude = lon
-        } else if (latitude == null || longitude == null) {
-            return
+
+            // Primer fix real de la sesión: si la ubicación guardada estaba lejos
+            // (viaje entre sesiones), se vuelve a consultar sin esperar al intervalo.
+            if (!gotFreshFix) {
+                gotFreshFix = true
+
+                if (previousLat == null || previousLon == null ||
+                    distanceKm(previousLat, previousLon, lat, lon) > 3.0
+                ) {
+                    lastRequestTime = 0L
+                }
+            }
         }
+
+        // Sin ninguna ubicación (ni GPS ni guardada) no hay nada que consultar
+        if (latitude == null || longitude == null) return
 
         val now = System.currentTimeMillis()
 
@@ -157,6 +216,8 @@ class WeatherController(context: Context) {
                     loading = false,
                     lastUpdate = System.currentTimeMillis()
                 )
+
+                saveWeather(data)
 
             } catch (e: Exception) {
 

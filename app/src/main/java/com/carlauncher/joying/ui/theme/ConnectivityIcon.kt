@@ -29,7 +29,7 @@ private val NoConnectionRed = Color(0xFFFF7070)
 
 /**
  * Indicador único de conectividad:
- *  - CELLULAR -> texto "4G"
+ *  - CELLULAR -> texto con la generación ("2G", "3G", "4G", "5G")
  *  - WIFI     -> icono wifi
  *  - OTHER    -> globo terráqueo
  *  - NONE     -> globo terráqueo tachado
@@ -37,7 +37,8 @@ private val NoConnectionRed = Color(0xFFFF7070)
 @Composable
 fun ConnectivityIcon(
     type: ConnectionType,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    cellularLabel: String = "4G"
 ) {
     Box(
         modifier = modifier.size(width = 30.dp, height = 22.dp),
@@ -45,7 +46,7 @@ fun ConnectivityIcon(
     ) {
         when (type) {
             ConnectionType.CELLULAR -> Text(
-                text = "4G",
+                text = cellularLabel,
                 color = White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold

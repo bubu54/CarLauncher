@@ -197,6 +197,7 @@ fun CompassWidget() {
         verticalArrangement = Arrangement.Center
     ) {
 
+        /*
         Text(
             text = "COMPASS",
             color = accent,
@@ -204,6 +205,7 @@ fun CompassWidget() {
             fontWeight = FontWeight.Bold,
             letterSpacing = 3.sp
         )
+        */
 
         Spacer(modifier = Modifier.height(5.dp))
 

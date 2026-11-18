@@ -13,6 +13,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 
+/** Widgets que puede mostrar el panel central. */
+private val VALID_WIDGETS = setOf(
+    "INICIO", "RELOJ", "VELOCÍMETRO", "BRÚJULA", "NAVEGACIÓN", "MÚSICA", "AUTO"
+)
+
 object ThemeMode {
     const val DARK = "DARK"
     const val LIGHT = "LIGHT"
@@ -24,6 +29,9 @@ data class LauncherSettingsData(
     // Apariencia
     val themeMode: String = ThemeMode.DARK,
     val nightDimming: Int = 0,              // 0..80 %
+    val lastWidget: String = "INICIO",       // último widget elegido en el panel central
+    val clockId: String = "speedmaster",    // reloj del widget RELOJ
+    val styleId: String = "carbon_aluminum", // estilo visual (carpeta ui/theme/themes)
 
     // Meteorología
     val weatherEnabled: Boolean = true,
@@ -41,6 +49,7 @@ data class LauncherSettingsData(
     val showArtwork: Boolean = true,
     val showSongInfo: Boolean = true,
     val showBottomControls: Boolean = true,
+    val songToast: Boolean = true,          // aviso al cambiar de canción
 
     // Modo AUTO
     val autoEnabled: Boolean = true,
@@ -68,14 +77,21 @@ class LauncherSettings(context: Context) {
         applyBootReceiver(data.startOnBoot)
     }
 
-    fun update(transform: (LauncherSettingsData) -> LauncherSettingsData) {
+    /**
+     * [sync] = true escribe en disco de forma síncrona (para cambios que no se deben
+     * perder aunque el proceso se cierre justo después, como el reloj elegido).
+     */
+    fun update(
+        sync: Boolean = false,
+        transform: (LauncherSettingsData) -> LauncherSettingsData
+    ) {
         val old = data
         val new = transform(old)
 
         if (new == old) return
 
         data = new
-        save(new)
+        save(new, sync)
 
         if (new.startOnBoot != old.startOnBoot) {
             applyBootReceiver(new.startOnBoot)
@@ -88,6 +104,10 @@ class LauncherSettings(context: Context) {
         return LauncherSettingsData(
             themeMode = prefs.getString("theme_mode", d.themeMode) ?: d.themeMode,
             nightDimming = prefs.getInt("night_dimming", d.nightDimming).coerceIn(0, 80),
+            lastWidget = prefs.getString("last_widget", d.lastWidget)
+                ?.takeIf { it in VALID_WIDGETS } ?: d.lastWidget,
+            clockId = prefs.getString("clock_id", d.clockId) ?: d.clockId,
+            styleId = prefs.getString("style_id", d.styleId) ?: d.styleId,
 
             weatherEnabled = prefs.getBoolean("weather_enabled", d.weatherEnabled),
             weatherAutoLocation = prefs.getBoolean("weather_auto_location", d.weatherAutoLocation),
@@ -103,6 +123,7 @@ class LauncherSettings(context: Context) {
             showArtwork = prefs.getBoolean("show_artwork", d.showArtwork),
             showSongInfo = prefs.getBoolean("show_song_info", d.showSongInfo),
             showBottomControls = prefs.getBoolean("show_bottom_controls", d.showBottomControls),
+            songToast = prefs.getBoolean("song_toast", d.songToast),
 
             autoEnabled = prefs.getBoolean("auto_enabled", d.autoEnabled),
             autoMinSpeed = prefs.getInt("auto_min_speed", d.autoMinSpeed).coerceIn(3, 30),
@@ -114,10 +135,13 @@ class LauncherSettings(context: Context) {
         )
     }
 
-    private fun save(s: LauncherSettingsData) {
-        prefs.edit()
+    private fun save(s: LauncherSettingsData, sync: Boolean = false) {
+        val editor = prefs.edit()
             .putString("theme_mode", s.themeMode)
             .putInt("night_dimming", s.nightDimming)
+            .putString("last_widget", s.lastWidget)
+            .putString("clock_id", s.clockId)
+            .putString("style_id", s.styleId)
             .putBoolean("weather_enabled", s.weatherEnabled)
             .putBoolean("weather_auto_location", s.weatherAutoLocation)
             .putBoolean("fahrenheit", s.fahrenheit)
@@ -129,12 +153,14 @@ class LauncherSettings(context: Context) {
             .putBoolean("show_artwork", s.showArtwork)
             .putBoolean("show_song_info", s.showSongInfo)
             .putBoolean("show_bottom_controls", s.showBottomControls)
+            .putBoolean("song_toast", s.songToast)
             .putBoolean("auto_enabled", s.autoEnabled)
             .putInt("auto_min_speed", s.autoMinSpeed)
             .putInt("auto_confirm_seconds", s.autoConfirmSeconds)
             .putBoolean("start_on_boot", s.startOnBoot)
             .putBoolean("keep_screen_on", s.keepScreenOn)
-            .apply()
+
+        if (sync) editor.commit() else editor.apply()
     }
 
     /** Activa o desactiva el receptor que lanza el launcher tras el arranque. */

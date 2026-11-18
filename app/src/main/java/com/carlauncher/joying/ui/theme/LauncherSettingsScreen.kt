@@ -53,6 +53,7 @@ import com.carlauncher.joying.ThemeMode
 import com.carlauncher.joying.WeatherController
 import com.carlauncher.joying.WeatherData
 import com.carlauncher.joying.temperatureText
+import com.carlauncher.joying.ui.theme.themes.LauncherStyles
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
@@ -87,6 +88,11 @@ fun LauncherSettingsScreen(
     weatherData: WeatherData,
     onClose: () -> Unit
 ) {
+    val launcherSettings = LocalLauncherSettings.current
+
+    // Estado de los ajustes al abrir la pantalla (para "Volver sin guardar")
+    val initialSettings = remember { launcherSettings.data }
+
     var sectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val section = SettingsSection.values().firstOrNull { it.name == sectionName }
 
@@ -182,6 +188,20 @@ fun LauncherSettingsScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
                             .clickable { sectionName = null }
+                            .padding(horizontal = 10.dp, vertical = 10.dp)
+                    )
+                } else {
+                    Text(
+                        text = "‹  Volver sin guardar",
+                        color = TextMuted,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                // Descarta los cambios hechos desde que se abrió Ajustes
+                                launcherSettings.update { initialSettings }
+                                onClose()
+                            }
                             .padding(horizontal = 10.dp, vertical = 10.dp)
                     )
                 }
@@ -296,6 +316,19 @@ private fun SectionContent(
 @Composable
 private fun AppearanceSection(settings: LauncherSettings) {
     val s = settings.data
+
+    ChoiceChips(
+        title = "Estilo visual",
+        options = LauncherStyles.all.map { it.id to it.name },
+        selected = s.styleId,
+        onSelect = { value -> settings.update { it.copy(styleId = value) } }
+    )
+    HintText(
+        "Textura del fondo y de los botones. Para añadir más estilos, crea uno en " +
+                "la carpeta ui/theme/themes."
+    )
+
+    RowDivider()
 
     ChoiceChips(
         title = "Tema",
@@ -511,6 +544,12 @@ private fun MusicSection(settings: LauncherSettings) {
         subtitle = "Barra con anterior, play/pausa y siguiente",
         checked = s.showBottomControls,
         onChange = { v -> settings.update { it.copy(showBottomControls = v) } }
+    )
+    SettingToggle(
+        title = "Aviso al cambiar de canción",
+        subtitle = "Muestra portada, título y artista un instante cuando no estás en el widget de música",
+        checked = s.songToast,
+        onChange = { v -> settings.update { it.copy(songToast = v) } }
     )
 }
 

@@ -7,6 +7,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.delay
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.carlauncher.joying.*
@@ -16,12 +23,49 @@ fun TopBar(
     weatherData: WeatherData,
     weatherController: WeatherController,
     gpsAvailable: Boolean = false,
+    satellites: Int = 0,
+    satellitesVisible: Int = 0,
+    locationGranted: Boolean = false,
     onOpenSettings: () -> Unit = {}
 ) {
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val settings = LocalLauncherSettings.current.data
     var connectivity by remember { mutableStateOf(ConnectionType.NONE) }
+    var downKbps by remember { mutableIntStateOf(0) }
+    var cellularLabel by remember { mutableStateOf("4G") }
+
+    // Permiso para leer el tipo real de red móvil (2G/3G/4G/5G).
+    // Sin él se estima por el ancho de banda.
+    var phoneStateGranted by remember {
+        mutableStateOf(
+            context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val phonePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> phoneStateGranted = granted }
+
+    // Se pide después del permiso de ubicación para no solapar los diálogos
+    LaunchedEffect(locationGranted) {
+        if (locationGranted && !phoneStateGranted) {
+            phonePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+        }
+    }
+
+    val latestDownKbps by rememberUpdatedState(downKbps)
+
+    // Con datos móviles activos, se relee la generación de red cada pocos segundos
+    LaunchedEffect(connectivity, phoneStateGranted) {
+        if (connectivity == ConnectionType.CELLULAR) {
+            while (true) {
+                cellularLabel = CellularInfo.generation(context, latestDownKbps)
+                delay(3000)
+            }
+        }
+    }
 
     DisposableEffect(Unit) {
         val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
@@ -35,7 +79,9 @@ fun TopBar(
             else -> ConnectionType.OTHER
         }
 
-        connectivity = label(cm.activeNetwork?.let { cm.getNetworkCapabilities(it) })
+        val initialCaps = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        connectivity = label(initialCaps)
+        downKbps = initialCaps?.linkDownstreamBandwidthKbps ?: 0
 
         val callback = object : android.net.ConnectivityManager.NetworkCallback() {
             override fun onCapabilitiesChanged(
@@ -43,6 +89,7 @@ fun TopBar(
                 networkCapabilities: android.net.NetworkCapabilities
             ) {
                 connectivity = label(networkCapabilities)
+                downKbps = networkCapabilities.linkDownstreamBandwidthKbps
             }
 
             override fun onLost(network: android.net.Network) {
@@ -71,11 +118,24 @@ fun TopBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
 
+        // GPS: tachado si no hay señal; con señal, número de satélites usados
         Text(
-            text = if (gpsAvailable) "GPS  ●" else "GPS  ○",
+            text = "GPS",
             color = if (gpsAvailable) White else Secondary,
-            fontSize = 12.sp
+            fontSize = 12.sp,
+            textDecoration = if (gpsAvailable) TextDecoration.None else TextDecoration.LineThrough
         )
+
+        if (gpsAvailable) {
+            Spacer(Modifier.width(6.dp))
+
+            Text(
+                text = "$satellites/${maxOf(satellites, satellitesVisible)}",
+                color = Blue,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
 
         Spacer(Modifier.width(20.dp))
 
@@ -101,7 +161,7 @@ fun TopBar(
 
         Spacer(Modifier.weight(1f))
 
-        ConnectivityIcon(type = connectivity)
+        ConnectivityIcon(type = connectivity, cellularLabel = cellularLabel)
 
         Spacer(Modifier.width(18.dp))
 

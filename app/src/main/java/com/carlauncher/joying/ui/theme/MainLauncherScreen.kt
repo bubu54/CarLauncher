@@ -9,6 +9,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.carlauncher.joying.*
+import com.carlauncher.joying.ui.theme.themes.LauncherStyles
+import com.carlauncher.joying.ui.theme.themes.LocalLauncherStyle
+import com.carlauncher.joying.ui.theme.themes.launcherBackground
 import kotlinx.coroutines.delay
 
 @Composable
@@ -16,7 +19,10 @@ fun MainLauncherScreen() {
 
     val settings = rememberLauncherSettings()
 
-    CompositionLocalProvider(LocalLauncherSettings provides settings) {
+    CompositionLocalProvider(
+        LocalLauncherSettings provides settings,
+        LocalLauncherStyle provides LauncherStyles.byId(settings.data.styleId)
+    ) {
         LauncherContent(settings)
     }
 }
@@ -26,9 +32,8 @@ private fun LauncherContent(settings: LauncherSettings) {
 
     val s = settings.data
 
-    var selectedWidget by rememberSaveable {
-        mutableStateOf("INICIO")
-    }
+    // Último widget elegido: se recuerda entre arranques
+    val selectedWidget = s.lastWidget
 
     var showWidgetSelector by rememberSaveable {
         mutableStateOf(false)
@@ -39,6 +44,10 @@ private fun LauncherContent(settings: LauncherSettings) {
     }
 
     var showApps by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var showClockPicker by rememberSaveable {
         mutableStateOf(false)
     }
 
@@ -113,7 +122,7 @@ private fun LauncherContent(settings: LauncherSettings) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Background)
+                .launcherBackground()
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
 
@@ -121,6 +130,9 @@ private fun LauncherContent(settings: LauncherSettings) {
                 weatherData = weatherData,
                 weatherController = weatherController,
                 gpsAvailable = gpsData.gpsAvailable,
+                satellites = gpsData.satellitesUsed,
+                satellitesVisible = gpsData.satellitesVisible,
+                locationGranted = gpsData.hasPermission,
                 onOpenSettings = { showSettings = true }
             )
 
@@ -145,6 +157,10 @@ private fun LauncherContent(settings: LauncherSettings) {
                 CentralWidgetPanel(
                     widget = selectedWidget,
                     onClick = { showWidgetSelector = true },
+                    onLongClick = {
+                        // Pulsación larga sobre el reloj: popup de selección de reloj
+                        if (selectedWidget == "RELOJ") showClockPicker = true
+                    },
                     mediaData = mediaData,
                     mediaController = mediaController,
                     navigationData = navigationData,
@@ -182,9 +198,26 @@ private fun LauncherContent(settings: LauncherSettings) {
                     showWidgetSelector = false
                 },
                 onSelect = { widget ->
-                    selectedWidget = widget
+                    settings.update(sync = true) { it.copy(lastWidget = widget) }
                     showWidgetSelector = false
                 }
+            )
+        }
+
+        // Aviso de canción nueva (solo si no se está viendo el widget de música)
+        NowPlayingToast(
+            media = mediaData,
+            enabled = s.songToast && selectedWidget != "MÚSICA"
+        )
+
+        if (showClockPicker) {
+            ClockPickerPopup(
+                selectedId = s.clockId,
+                onSelect = { id ->
+                    settings.update(sync = true) { it.copy(clockId = id) }
+                    showClockPicker = false
+                },
+                onDismiss = { showClockPicker = false }
             )
         }
 

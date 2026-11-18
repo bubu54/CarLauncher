@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.GnssStatus
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Looper
@@ -26,7 +27,9 @@ data class CarGpsData(
     val tripKm: Float = 0f,
     val lastValidLocationTime: Long = 0L,
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    val satellitesUsed: Int = 0,      // satélites usados en el fix actual
+    val satellitesVisible: Int = 0    // satélites a la vista
 )
 
 class CarGpsController(context: Context) {
@@ -50,6 +53,39 @@ class CarGpsController(context: Context) {
 
     private var lastLocation: Location? = null
     private var listener: LocationListener? = null
+    private var gnssCallback: GnssStatus.Callback? = null
+
+    private fun registerGnss() {
+        if (gnssCallback != null) return
+
+        val callback = object : GnssStatus.Callback() {
+            override fun onSatelliteStatusChanged(status: GnssStatus) {
+                var used = 0
+
+                for (i in 0 until status.satelliteCount) {
+                    if (status.usedInFix(i)) used++
+                }
+
+                val visible = status.satelliteCount
+
+                // Evitar recomposiciones si no hay cambios
+                if (used != data.satellitesUsed || visible != data.satellitesVisible) {
+                    data = data.copy(satellitesUsed = used, satellitesVisible = visible)
+                }
+            }
+        }
+
+        try {
+            @Suppress("DEPRECATION")
+            locationManager.registerGnssStatusCallback(
+                callback,
+                android.os.Handler(Looper.getMainLooper())
+            )
+            gnssCallback = callback
+        } catch (_: SecurityException) {
+        } catch (_: Exception) {
+        }
+    }
 
     fun setPermission(granted: Boolean) {
         data = data.copy(hasPermission = granted)
@@ -147,6 +183,8 @@ class CarGpsController(context: Context) {
                 newListener,
                 Looper.getMainLooper()
             )
+
+            registerGnss()
         } catch (e: IllegalArgumentException) {
             listener = null
             data = data.copy(gpsAvailable = false)
@@ -161,6 +199,16 @@ class CarGpsController(context: Context) {
             locationManager.removeUpdates(it)
         }
         listener = null
+
+        gnssCallback?.let {
+            try {
+                locationManager.unregisterGnssStatusCallback(it)
+            } catch (_: Exception) {
+            }
+        }
+        gnssCallback = null
+
+        data = data.copy(satellitesUsed = 0, satellitesVisible = 0)
     }
 
     fun resetTrip() {

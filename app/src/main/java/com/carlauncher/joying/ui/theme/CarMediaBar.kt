@@ -1,43 +1,78 @@
-
 package com.carlauncher.joying.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-import com.carlauncher.joying.CarMediaData
 import com.carlauncher.joying.CarMediaController
+import com.carlauncher.joying.CarMediaData
+import com.carlauncher.joying.ui.theme.themes.LocalLauncherStyle
+import com.carlauncher.joying.ui.theme.themes.launcherPanel
 
 @Composable
 fun CarMediaBar(
     media: CarMediaData,
     controller: CarMediaController
 ) {
+    val style = LocalLauncherStyle.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(58.dp)
-            .background(
-                Panel,
-                RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 16.dp),
+            .height(62.dp)
+            .launcherPanel(RoundedCornerShape(12.dp))
+            .padding(horizontal = 9.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+
+        // Carátula del disco (a la izquierda del todo)
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(ButtonBackground),
+            contentAlignment = Alignment.Center
+        ) {
+            if (media.artwork != null) {
+                Image(
+                    bitmap = media.artwork.asImageBitmap(),
+                    contentDescription = "Carátula",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = "♪",
+                    color = Blue,
+                    fontSize = 24.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Título y artista
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -63,37 +98,58 @@ fun CarMediaBar(
             )
         }
 
-        Text(
-            text = "⏮",
-            color = if (media.hasSession) Blue else Secondary,
-            fontSize = 27.sp,
-            modifier = Modifier
-                .clickable(enabled = media.hasSession) {
-                    controller.previous(media)
-                }
-                .padding(horizontal = 12.dp)
-        )
+        // Controles
+        val contentColor = if (media.hasSession) {
+            style.buttonContentColor
+        } else {
+            style.buttonDisabledContentColor
+        }
 
-        Text(
-            text = if (media.isPlaying) "Ⅱ" else "▶",
-            color = if (media.hasSession) Blue else Secondary,
-            fontSize = 27.sp,
-            modifier = Modifier
-                .clickable(enabled = media.hasSession) {
-                    controller.playPause(media)
-                }
-                .padding(horizontal = 12.dp)
-        )
+        MediaBarButton("⏮", contentColor, media.hasSession) {
+            controller.previous(media)
+        }
 
+        Spacer(modifier = Modifier.width(8.dp))
+
+        MediaBarButton(
+            symbol = if (media.isPlaying) "Ⅱ" else "▶",
+            contentColor = contentColor,
+            enabled = media.hasSession
+        ) {
+            controller.playPause(media)
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        MediaBarButton("⏭", contentColor, media.hasSession) {
+            controller.next(media)
+        }
+    }
+}
+
+@Composable
+private fun MediaBarButton(
+    symbol: String,
+    contentColor: androidx.compose.ui.graphics.Color,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val style = LocalLauncherStyle.current
+
+    StyledButton(
+        modifier = Modifier
+            .width(54.dp)
+            .height(44.dp),
+        shape = RoundedCornerShape(10.dp),
+        enabled = enabled,
+        onClick = onClick
+    ) {
         Text(
-            text = "⏭",
-            color = if (media.hasSession) Blue else Secondary,
-            fontSize = 27.sp,
-            modifier = Modifier
-                .clickable(enabled = media.hasSession) {
-                    controller.next(media)
-                }
-                .padding(horizontal = 12.dp)
+            text = symbol,
+            color = contentColor,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            style = TextStyle(shadow = style.buttonTextShadow)
         )
     }
 }
