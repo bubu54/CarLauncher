@@ -28,6 +28,8 @@ data class CarGpsData(
     val lastValidLocationTime: Long = 0L,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    val altitude: Double? = null,     // metros sobre el nivel del mar (GPS)
+    val bearing: Float? = null,       // rumbo GPS en grados; solo con el coche en marcha
     val satellitesUsed: Int = 0,      // satélites usados en el fix actual
     val satellitesVisible: Int = 0    // satélites a la vista
 )
@@ -114,7 +116,16 @@ class CarGpsController(context: Context) {
                     latitude = location.latitude,
                     longitude = location.longitude,
                     gpsAvailable = true,
-                    lastValidLocationTime = now
+                    lastValidLocationTime = now,
+                    altitude = if (location.hasAltitude()) location.altitude else data.altitude,
+                    // El rumbo GPS solo es fiable en movimiento
+                    bearing = if (location.hasBearing() && location.hasSpeed() &&
+                        location.speed >= 2f
+                    ) {
+                        location.bearing
+                    } else {
+                        null
+                    }
                 )
 
                 // A partir de aquí necesitamos velocidad válida

@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.carlauncher.joying.*
+import com.carlauncher.joying.ui.theme.compass.CompassPickerPopup
 import com.carlauncher.joying.ui.theme.themes.LauncherStyles
 import com.carlauncher.joying.ui.theme.themes.LocalLauncherStyle
 import com.carlauncher.joying.ui.theme.themes.launcherBackground
@@ -48,6 +49,10 @@ private fun LauncherContent(settings: LauncherSettings) {
     }
 
     var showClockPicker by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var showCompassPicker by rememberSaveable {
         mutableStateOf(false)
     }
 
@@ -158,8 +163,11 @@ private fun LauncherContent(settings: LauncherSettings) {
                     widget = selectedWidget,
                     onClick = { showWidgetSelector = true },
                     onLongClick = {
-                        // Pulsación larga sobre el reloj: popup de selección de reloj
-                        if (selectedWidget == "RELOJ") showClockPicker = true
+                        // Pulsación larga: popup para elegir reloj o brújula
+                        when (selectedWidget) {
+                            "RELOJ" -> showClockPicker = true
+                            "BRÚJULA" -> showCompassPicker = true
+                        }
                     },
                     mediaData = mediaData,
                     mediaController = mediaController,
@@ -209,6 +217,17 @@ private fun LauncherContent(settings: LauncherSettings) {
             media = mediaData,
             enabled = s.songToast && selectedWidget != "MÚSICA"
         )
+
+        if (showCompassPicker) {
+            CompassPickerPopup(
+                selectedId = s.compassId,
+                onSelect = { id ->
+                    settings.update(sync = true) { it.copy(compassId = id) }
+                    showCompassPicker = false
+                },
+                onDismiss = { showCompassPicker = false }
+            )
+        }
 
         if (showClockPicker) {
             ClockPickerPopup(

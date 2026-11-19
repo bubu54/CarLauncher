@@ -27,10 +27,10 @@ import com.carlauncher.joying.CarNavigationData
 import com.carlauncher.joying.CarGpsData
 import com.carlauncher.joying.CarGpsController
 import com.carlauncher.joying.ui.GpsSpeedometer
-import com.carlauncher.joying.ui.CompassWidget
 import com.carlauncher.joying.NavigationWidget
 import com.carlauncher.joying.AutoWidget
 import com.carlauncher.joying.LocalLauncherSettings
+import com.carlauncher.joying.ui.theme.compass.CompassRegistry
 import com.carlauncher.joying.ui.theme.themes.launcherPanel
 import com.carlauncher.joying.ui.theme.clocks.ClockRegistry
 
@@ -111,7 +111,11 @@ fun CentralWidgetPanel(
                 )
 
                 "BRÚJULA" -> {
-                    CompassWidget()
+                    val compass = CompassRegistry.byId(
+                        LocalLauncherSettings.current.data.compassId
+                    )
+
+                    compass.content(gpsData)
                 }
 
                 "NAVEGACIÓN" -> {

@@ -14,49 +14,74 @@ internal object Textures {
     private var brushedCache: Bitmap? = null
 
     /**
-     * Mosaico de fibra de carbono (tejido 2x2): celdas alternas con la fibra en
-     * horizontal y en vertical, cada una con un brillo central.
-     * [cell] = lado de cada celda en píxeles.
+     * Mosaico de fibra de carbono en sarga diagonal 2x2 (Twill 45°) con trama amplia:
+     * Genera el patrón escalonado en relieve de bloques rectangulares inclinados
+     * con iluminación direccional y repetición continua sin costuras.
+     * [cell] = tamaño base de la celda en píxeles.
      */
     fun carbonTile(cell: Int): Bitmap = carbonCache.getOrPut(cell) {
-
-        val size = cell * 2
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        // Aumentamos el multiplicador a 2.8f para duplicar el tamaño de los bloques
+        val step = (cell * 3.8f).coerceAtLeast(16f)
+        val tileSize = (step * 4f).toInt()
+        val bitmap = Bitmap.createBitmap(tileSize, tileSize, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        canvas.drawColor(0xFF0C0D0E.toInt())
+        canvas.drawColor(0xFF161719.toInt())
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val sub = step / 2f
 
-        val colors = intArrayOf(0xFF08090A.toInt(), 0xFF2B2E32.toInt(), 0xFF0D0E10.toInt())
-        val stops = floatArrayOf(0f, 0.5f, 1f)
+        // Degradado en relieve para hebras iluminadas desde arriba-izquierda
+        val lightColors = intArrayOf(
+            0xFF45474C.toInt(),
+            0xFF34363A.toInt(),
+            0xFF212225.toInt(),
+            0xFF141517.toInt()
+        )
+        // Degradado más profundo para hebras en sombra perpendicular
+        val darkColors = intArrayOf(
+            0xFF323438.toInt(),
+            0xFF232528.toInt(),
+            0xFF17181B.toInt(),
+            0xFF0F1012.toInt()
+        )
+        val stops = floatArrayOf(0f, 0.25f, 0.75f, 1f)
 
-        for (cy in 0..1) {
-            for (cx in 0..1) {
+        // Rotamos el lienzo -45° alrededor del centro del mosaico
+        canvas.save()
+        canvas.rotate(90f, tileSize / 2f, tileSize / 2f)
 
-                val x0 = (cx * cell).toFloat()
-                val y0 = (cy * cell).toFloat()
-                val horizontalStrand = (cx + cy) % 2 == 0
+        // Dibujamos con margen extra (-4..11) para cubrir las esquinas tras la rotación
+        for (row in -4 until 12) {
+            for (col in -4 until 12) {
+                val phase = (col + row).mod(4)
 
-                paint.shader = if (horizontalStrand) {
-                    LinearGradient(0f, y0, 0f, y0 + cell, colors, stops, Shader.TileMode.CLAMP)
-                } else {
-                    LinearGradient(x0, 0f, x0 + cell, 0f, colors, stops, Shader.TileMode.CLAMP)
+                if (phase == 0) {
+                    val x0 = col * sub
+                    val y0 = row * sub
+                    val w = sub * 2f
+                    val h = sub
+
+                    paint.shader = LinearGradient(
+                        x0, y0, x0, y0 + h,
+                        lightColors, stops, Shader.TileMode.CLAMP
+                    )
+                    canvas.drawRect(x0 + 1f, y0 + 1f, x0 + w - 1f, y0 + h - 1f, paint)
+                } else if (phase == 2) {
+                    val x0 = col * sub
+                    val y0 = row * sub
+                    val w = sub
+                    val h = sub * 2f
+
+                    paint.shader = LinearGradient(
+                        x0, y0, x0 + w, y0,
+                        darkColors, stops, Shader.TileMode.CLAMP
+                    )
+                    canvas.drawRect(x0 + 1f, y0 + 1f, x0 + w - 1f, y0 + h - 1f, paint)
                 }
-
-                canvas.drawRect(x0, y0, x0 + cell, y0 + cell, paint)
             }
         }
 
-        // Rendija oscura entre hebras para dar definición
-        paint.shader = null
-        paint.color = 0x88000000.toInt()
-        paint.strokeWidth = 1f
-
-        canvas.drawLine(0f, 0f, size.toFloat(), 0f, paint)
-        canvas.drawLine(0f, cell.toFloat(), size.toFloat(), cell.toFloat(), paint)
-        canvas.drawLine(0f, 0f, 0f, size.toFloat(), paint)
-        canvas.drawLine(cell.toFloat(), 0f, cell.toFloat(), size.toFloat(), paint)
-
+        canvas.restore()
         bitmap
     }
 
@@ -75,7 +100,6 @@ internal object Textures {
         val paint = Paint()
         val random = Random(42)
 
-        // Una estría por fila, con intensidad aleatoria
         for (y in 0 until h) {
             val alpha = random.nextInt(30)
             paint.color = if (random.nextBoolean()) {
@@ -86,7 +110,6 @@ internal object Textures {
             canvas.drawRect(0f, y.toFloat(), w.toFloat(), y + 1f, paint)
         }
 
-        // Segmentos más largos y brillantes (con continuidad al repetir el mosaico)
         for (i in 0 until 140) {
             val y = random.nextInt(h).toFloat()
             val x = random.nextInt(w).toFloat()

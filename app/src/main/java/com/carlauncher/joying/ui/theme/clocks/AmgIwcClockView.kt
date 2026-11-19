@@ -1,5 +1,14 @@
 package com.carlauncher.joying.ui.theme.clocks
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTA: el fichero original llegó cortado (empezaba a mitad de una instrucción).
+// La PRIMERA PARTE de este archivo (imports, composable, caja, bisel, esfera,
+// números aplicados 12-3-6-9 y marcadores de hora) está RECONSTRUIDA.
+// Desde el comentario "// 8. CÁLCULO CONTINUO" hasta el final, el código es el
+// original sin modificar. Si tienes el archivo completo, sustitúyelo sin más:
+// el nombre del composable (AmgIwcClockView) y su registro se mantienen.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import android.graphics.Paint as NativePaint
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
@@ -17,11 +26,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -30,7 +37,6 @@ import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -41,7 +47,7 @@ fun AmgIwcClockView() {
     LaunchedEffect(Unit) {
         while (true) {
             currentTimestamp = System.currentTimeMillis()
-            delay(33) // Refresco fluido a ~30-60fps para barrido continuo
+            delay(33)
         }
     }
 
@@ -50,8 +56,8 @@ fun AmgIwcClockView() {
 
     Canvas(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(340.dp)
+        .fillMaxWidth()
+        .height(340.dp)
     ) {
         drawAmgIwcEngine(time)
     }
@@ -60,222 +66,117 @@ fun AmgIwcClockView() {
 private fun DrawScope.drawAmgIwcEngine(time: ZonedDateTime) {
     val center = Offset(size.width / 2f, size.height / 2f)
     val outerCaseRadius = minOf(size.width, size.height) * 0.48f
-    val chromeBezelRadius = outerCaseRadius * 0.93f
-    val dialRadius = chromeBezelRadius * 0.91f
-    val innerPatternRadius = dialRadius * 0.48f
+    val bezelRadius = outerCaseRadius * 0.94f
+    val dialRadius = bezelRadius * 0.90f
     val canvas = drawContext.canvas.nativeCanvas
 
-    // 1. CARCASA EXTERIOR NEGRA Y BISEL CROMADO PULIDO
+    // 1. Caja de acero con sombra
+    drawCircle(Color(0x99000000), outerCaseRadius, Offset(center.x, center.y + 4.dp.toPx()))
     drawCircle(
-        color = Color(0xFF0E1012),
+        brush = Brush.sweepGradient(
+            colors = listOf(
+                Color(0xFF9AA0A6),
+                Color(0xFFE6E9ED),
+                Color(0xFF6B7075),
+                Color(0xFFD9DDE2),
+                Color(0xFF5C6065),
+                Color(0xFFE6E9ED),
+                Color(0xFF9AA0A6)
+            ),
+            center = center
+        ),
         radius = outerCaseRadius,
         center = center
     )
 
-    drawCircle(
-        brush = Brush.sweepGradient(
-            colors = listOf(
-                Color(0xFF7D8288),
-                Color(0xFFFFFFFF),
-                Color(0xFF4C5056),
-                Color(0xFFE8ECEF),
-                Color(0xFF3E4247),
-                Color(0xFFF5F7FA),
-                Color(0xFF7D8288)
+    // 2. Bisel de grafito con marcas de minuto (la del 12 en rojo)
+    drawCircle(Color(0xFF16191D), bezelRadius, center)
+
+    for (i in 0 until 60) {
+        val a = Math.toRadians(i * 6.0)
+        val major = i % 5 == 0
+        val r1 = bezelRadius * 0.97f
+        val r2 = bezelRadius * (if (major) 0.87f else 0.92f)
+
+        drawLine(
+            color = if (i == 0) Color(0xFFE02424) else Color(0xFFE5E7EB),
+            start = Offset(
+                center.x + (r1 * sin(a)).toFloat(),
+                center.y - (r1 * cos(a)).toFloat()
             ),
-            center = center
-        ),
-        radius = chromeBezelRadius,
-        center = center
-    )
+            end = Offset(
+                center.x + (r2 * sin(a)).toFloat(),
+                center.y - (r2 * cos(a)).toFloat()
+            ),
+            strokeWidth = if (major) 2.4.dp.toPx() else 1.2.dp.toPx(),
+            cap = StrokeCap.Butt
+        )
+    }
 
-    drawCircle(
-        brush = Brush.linearGradient(
-            colors = listOf(Color(0xFF2B2E33), Color(0xFF090A0B)),
-            start = Offset(center.x - dialRadius, center.y - dialRadius),
-            end = Offset(center.x + dialRadius, center.y + dialRadius)
-        ),
-        radius = dialRadius + 2.dp.toPx(),
-        center = center
-    )
-
-    // 2. ESFERA NEGRA PROFUNDA
+    // 3. Esfera antracita con degradado radial
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(
-                Color(0xFF1A1C1F),
-                Color(0xFF101113),
-                Color(0xFF070809)
-            ),
+            colors = listOf(Color(0xFF31353B), Color(0xFF1C1F24), Color(0xFF0D0F12)),
             center = center,
             radius = dialRadius
         ),
         radius = dialRadius,
         center = center
     )
-
-    // 3. DISCO CENTRAL CON TEXTURA ENTRELAZADA AMG / IWC INGENIEUR
     drawCircle(
-        color = Color(0xFF0A0B0D),
-        radius = innerPatternRadius + 1.5.dp.toPx(),
-        center = center
-    )
-
-    val innerClip = Path().apply {
-        addOval(
-            androidx.compose.ui.geometry.Rect(
-                center = center,
-                radius = innerPatternRadius
-            )
-        )
-    }
-
-    clipPath(innerClip) {
-        drawCircle(
-            color = Color(0xFF131518),
-            radius = innerPatternRadius,
-            center = center
-        )
-
-        val step = 9.dp.toPx()
-        val startX = center.x - innerPatternRadius
-        val endX = center.x + innerPatternRadius
-        val startY = center.y - innerPatternRadius
-        val endY = center.y + innerPatternRadius
-
-        var row = 0
-        var y = startY
-        while (y < endY) {
-            var col = 0
-            var x = startX
-            while (x < endX) {
-                val isHorizontal = (row + col) % 2 == 0
-                if (isHorizontal) {
-                    drawRect(
-                        color = Color(0xFF23262B),
-                        topLeft = Offset(x + 1f, y + 1.5f),
-                        size = Size(step - 2f, step * 0.42f)
-                    )
-                    drawRect(
-                        color = Color(0xFF1D2024),
-                        topLeft = Offset(x + 1f, y + step * 0.55f),
-                        size = Size(step - 2f, step * 0.42f)
-                    )
-                } else {
-                    drawRect(
-                        color = Color(0xFF23262B),
-                        topLeft = Offset(x + 1.5f, y + 1f),
-                        size = Size(step * 0.42f, step - 2f)
-                    )
-                    drawRect(
-                        color = Color(0xFF1D2024),
-                        topLeft = Offset(x + step * 0.55f, y + 1f),
-                        size = Size(step * 0.42f, step - 2f)
-                    )
-                }
-                x += step
-                col++
-            }
-            y += step
-            row++
-        }
-    }
-
-    drawCircle(
-        color = Color(0x44FFFFFF),
-        radius = innerPatternRadius,
+        color = Color(0x33FFFFFF),
+        radius = dialRadius,
         center = center,
         style = Stroke(width = 1.dp.toPx())
     )
 
-    // 4. LOGOTIPO IWC SCHAFFHAUSEN
-    val iwcLogoPaint = NativePaint().apply {
-        color = Color(0xFFF0F2F5).toArgb()
-        textSize = dialRadius * 0.135f
+    // 4. Texto de esfera
+    val brandPaint = NativePaint().apply {
+        color = Color(0xFFE5E7EB).toArgb()
+        textSize = dialRadius * 0.10f
         textAlign = NativePaint.Align.CENTER
-        typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
-        letterSpacing = 0.08f
+        typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
         isAntiAlias = true
-        setShadowLayer(4f, 0f, 2f, Color(0xDD000000).toArgb())
+        letterSpacing = 0.18f
     }
-    canvas.drawText("IWC", center.x, center.y - dialRadius * 0.21f, iwcLogoPaint)
+    canvas.drawText("AMG", center.x, center.y - dialRadius * 0.30f, brandPaint)
 
-    val schaffhausenPaint = NativePaint().apply {
-        color = Color(0xFFD5D8DD).toArgb()
-        textSize = dialRadius * 0.042f
+    val subPaint = NativePaint().apply {
+        color = Color(0xFF9CA3AF).toArgb()
+        textSize = dialRadius * 0.065f
         textAlign = NativePaint.Align.CENTER
-        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-        letterSpacing = 0.20f
+        typeface = Typeface.create("sans-serif-condensed", Typeface.NORMAL)
         isAntiAlias = true
-        setShadowLayer(3f, 0f, 2f, Color(0xDD000000).toArgb())
+        letterSpacing = 0.2f
     }
-    canvas.drawText("SCHAFFHAUSEN", center.x, center.y - dialRadius * 0.13f, schaffhausenPaint)
+    canvas.drawText("AUTOMATIC", center.x, center.y + dialRadius * 0.40f, subPaint)
 
-    // 5. ESCALA PERIFÉRICA DE MINUTOS Y NÚMEROS ROJOS AMG (60, 10, 20, 30, 40, 50)
-    val redScalePaint = NativePaint().apply {
-        color = Color(0xFFE02424).toArgb()
-        textSize = dialRadius * 0.062f
-        textAlign = NativePaint.Align.CENTER
-        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-        isAntiAlias = true
-    }
+    // 5. Números aplicados metálicos en 12, 3, 6 y 9
+    val numeralSize = dialRadius * 0.30f
+    val numeralRadius = dialRadius * 0.68f
 
-    for (i in 0 until 60) {
-        val angleDeg = i * 6f
-        val angleRad = (angleDeg - 90.0) * PI / 180.0
-        val isTenMark = i % 10 == 0
-        val isFiveMark = i % 5 == 0
-
-        if (isTenMark) {
-            val label = if (i == 0) "60" else i.toString()
-            val textRadius = dialRadius - 11.dp.toPx()
-            val tx = center.x + cos(angleRad).toFloat() * textRadius
-            val ty = center.y + sin(angleRad).toFloat() * textRadius
-
-            canvas.save()
-            val rotationAngle = if (i in 20..40) angleDeg + 180f else angleDeg
-            canvas.rotate(rotationAngle, tx, ty)
-            canvas.drawText(label, tx, ty + redScalePaint.textSize * 0.35f, redScalePaint)
-            canvas.restore()
-        } else {
-            val outer = dialRadius - 5.dp.toPx()
-            val inner = if (isFiveMark) dialRadius - 15.dp.toPx() else dialRadius - 13.dp.toPx()
-            drawLine(
-                color = if (isFiveMark) Color(0xFFE5E7EB) else Color(0x99CBD0D6),
-                start = Offset(center.x + cos(angleRad).toFloat() * inner, center.y + sin(angleRad).toFloat() * inner),
-                end = Offset(center.x + cos(angleRad).toFloat() * outer, center.y + sin(angleRad).toFloat() * outer),
-                strokeWidth = if (isFiveMark) 2.5.dp.toPx() else 1.2.dp.toPx(),
-                cap = StrokeCap.Butt
-            )
-        }
+    listOf("12" to 0.0, "3" to 90.0, "6" to 180.0, "9" to 270.0).forEach { (label, deg) ->
+        val a = Math.toRadians(deg)
+        drawMetallicAppliedNumber(
+            canvas = canvas,
+            text = label,
+            x = center.x + (numeralRadius * sin(a)).toFloat(),
+            y = center.y - (numeralRadius * cos(a)).toFloat() + numeralSize * 0.36f,
+            sizePx = numeralSize
+        )
     }
 
-    // 6. NÚMEROS METÁLICOS APLICADOS "12" Y "6"
-    drawMetallicAppliedNumber(canvas, "12", center.x, center.y - dialRadius * 0.62f, dialRadius * 0.21f)
-    drawMetallicAppliedNumber(canvas, "6", center.x, center.y + dialRadius * 0.77f, dialRadius * 0.21f)
+    // 7. Marcadores de hora aplicados (los de 12, 3, 6 y 9 los ocupan los números)
+    for (i in 0 until 12) {
+        if (i % 3 == 0) continue
 
-    // 7. ÍNDICES HORARIOS METÁLICOS EN RELIEVE
-    for (h in 1..11) {
-        if (h == 6) continue
-        val angleDeg = h * 30f
-        rotate(degrees = angleDeg, pivot = center) {
-            val indexTop = center.y - dialRadius + 22.dp.toPx()
-            val indexWidth = 7.dp.toPx()
-            val indexHeight = 22.dp.toPx()
+        rotate(degrees = i * 30f, pivot = center) {
+            val indexWidth = 9.dp.toPx()
+            val indexHeight = dialRadius * 0.17f
+            val indexTop = center.y - dialRadius * 0.93f
 
             drawRoundRect(
-                color = Color(0xAA000000),
-                topLeft = Offset(center.x - indexWidth / 2f + 1.5.dp.toPx(), indexTop + 2.dp.toPx()),
-                size = Size(indexWidth, indexHeight),
-                cornerRadius = CornerRadius(1.5.dp.toPx())
-            )
-
-            drawRoundRect(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(Color(0xFF8A8F96), Color(0xFFFFFFFF), Color(0xFF6B7075)),
-                    startX = center.x - indexWidth / 2f,
-                    endX = center.x + indexWidth / 2f
-                ),
+                color = Color(0xFFD1D5DB),
                 topLeft = Offset(center.x - indexWidth / 2f, indexTop),
                 size = Size(indexWidth, indexHeight),
                 cornerRadius = CornerRadius(1.5.dp.toPx())
@@ -287,7 +188,7 @@ private fun DrawScope.drawAmgIwcEngine(time: ZonedDateTime) {
             )
         }
     }
-// 8. CÁLCULO CONTINUO DE HORAS, MINUTOS Y SEGUNDOS
+    // 8. CÁLCULO CONTINUO DE HORAS, MINUTOS Y SEGUNDOS
     val millisecond = time.nano / 1_000_000.0
     val secondContinuous = time.second + (millisecond / 1000.0)
     val minuteContinuous = time.minute + (secondContinuous / 60.0)
@@ -295,7 +196,7 @@ private fun DrawScope.drawAmgIwcEngine(time: ZonedDateTime) {
     val hourAngleDeg = (hourContinuous * 30.0).toFloat()
     val minuteAngleDeg = (minuteContinuous * 6.0).toFloat()
     val secondAngleDeg = (secondContinuous * 6.0).toFloat()
-// Aguja de Horas
+    // Aguja de Horas
     drawAmgIngenieurHand(
         center = center,
         angleDeg = hourAngleDeg,
@@ -303,7 +204,7 @@ private fun DrawScope.drawAmgIwcEngine(time: ZonedDateTime) {
         tailLength = dialRadius * 0.14f,
         width = 11.dp.toPx()
     )
-// Aguja de Minutos
+    // Aguja de Minutos
     drawAmgIngenieurHand(
         center = center,
         angleDeg = minuteAngleDeg,
@@ -311,7 +212,7 @@ private fun DrawScope.drawAmgIwcEngine(time: ZonedDateTime) {
         tailLength = dialRadius * 0.16f,
         width = 9.dp.toPx()
     )
-// Eje intermedio metálico (bajo el segundero)
+    // Eje intermedio metálico (bajo el segundero)
     drawCircle(Color(0x99000000), 11.dp.toPx(), Offset(center.x, center.y + 2.dp.toPx()))
     drawCircle(
         brush = Brush.linearGradient(
@@ -322,7 +223,7 @@ private fun DrawScope.drawAmgIwcEngine(time: ZonedDateTime) {
         radius = 10.dp.toPx(),
         center = center
     )
-// 9. SEGUNDERO DE MOVIMIENTO CONTINUO CON PUNTA ROJA AMG
+    // 9. SEGUNDERO DE MOVIMIENTO CONTINUO CON PUNTA ROJA AMG
     drawAmgSecondHand(
         center = center,
         angleDeg = secondAngleDeg,
@@ -340,7 +241,7 @@ private fun DrawScope.drawAmgSecondHand(
         val tipY = center.y - length
         val tailY = center.y + tailLength
         val redTipLength = length * 0.16f
-// 1. Sombra proyectada del segundero
+        // 1. Sombra proyectada del segundero
         drawLine(
             color = Color(0x88000000),
             start = Offset(center.x + 2.dp.toPx(), tailY + 4.dp.toPx()),
@@ -353,7 +254,7 @@ private fun DrawScope.drawAmgSecondHand(
             radius = 4.dp.toPx(),
             center = Offset(center.x + 2.dp.toPx(), center.y + tailLength * 0.65f + 4.dp.toPx())
         )
-// 2. Cuerpo metálico principal del segundero
+        // 2. Cuerpo metálico principal del segundero
         drawLine(
             color = Color(0xFFE5E7EB),
             start = Offset(center.x, tailY),
@@ -361,7 +262,7 @@ private fun DrawScope.drawAmgSecondHand(
             strokeWidth = 2.dp.toPx(),
             cap = StrokeCap.Butt
         )
-// 3. Punta roja deportiva AMG
+        // 3. Punta roja deportiva AMG
         drawLine(
             color = Color(0xFFE02424),
             start = Offset(center.x, tipY + redTipLength),
@@ -369,7 +270,7 @@ private fun DrawScope.drawAmgSecondHand(
             strokeWidth = 2.2.dp.toPx(),
             cap = StrokeCap.Round
         )
-// 4. Contrapeso circular trasero
+        // 4. Contrapeso circular trasero
         drawCircle(
             color = Color(0xFFE5E7EB),
             radius = 4.dp.toPx(),
@@ -380,7 +281,7 @@ private fun DrawScope.drawAmgSecondHand(
             radius = 1.6.dp.toPx(),
             center = Offset(center.x, center.y + tailLength * 0.65f)
         )
-// 5. Remache central superior del segundero
+        // 5. Remache central superior del segundero
         drawCircle(Color(0xFF1A1D21), 5.5.dp.toPx(), center)
         drawCircle(Color(0xFFD1D5DB), 4.dp.toPx(), center)
         drawCircle(Color(0xFFE02424), 1.6.dp.toPx(), center)

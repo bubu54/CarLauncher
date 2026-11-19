@@ -30,6 +30,7 @@ data class LauncherSettingsData(
     val themeMode: String = ThemeMode.DARK,
     val nightDimming: Int = 0,              // 0..80 %
     val lastWidget: String = "INICIO",       // último widget elegido en el panel central
+    val compassId: String = "metallic",      // brújula del widget BRÚJULA
     val clockId: String = "speedmaster",    // reloj del widget RELOJ
     val styleId: String = "carbon_aluminum", // estilo visual (carpeta ui/theme/themes)
 
@@ -106,6 +107,7 @@ class LauncherSettings(context: Context) {
             nightDimming = prefs.getInt("night_dimming", d.nightDimming).coerceIn(0, 80),
             lastWidget = prefs.getString("last_widget", d.lastWidget)
                 ?.takeIf { it in VALID_WIDGETS } ?: d.lastWidget,
+            compassId = prefs.getString("compass_id", d.compassId) ?: d.compassId,
             clockId = prefs.getString("clock_id", d.clockId) ?: d.clockId,
             styleId = prefs.getString("style_id", d.styleId) ?: d.styleId,
 
@@ -140,6 +142,7 @@ class LauncherSettings(context: Context) {
             .putString("theme_mode", s.themeMode)
             .putInt("night_dimming", s.nightDimming)
             .putString("last_widget", s.lastWidget)
+            .putString("compass_id", s.compassId)
             .putString("clock_id", s.clockId)
             .putString("style_id", s.styleId)
             .putBoolean("weather_enabled", s.weatherEnabled)
