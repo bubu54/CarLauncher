@@ -43,6 +43,7 @@ data class LauncherSettingsData(
     // Navegación
     val navApp: String = "",                // "" = automático
     val navPriority: Boolean = true,
+    val navShowMap: Boolean = true,         // mapa de fondo en el widget de navegación
 
     // Música
     val musicApp: String = "",              // "" = ninguno
@@ -119,6 +120,7 @@ class LauncherSettings(context: Context) {
 
             navApp = prefs.getString("nav_app", d.navApp) ?: d.navApp,
             navPriority = prefs.getBoolean("nav_priority", d.navPriority),
+            navShowMap = prefs.getBoolean("nav_show_map", d.navShowMap),
 
             musicApp = prefs.getString("music_app", d.musicApp) ?: d.musicApp,
             musicAutoDetect = prefs.getBoolean("music_auto_detect", d.musicAutoDetect),
@@ -151,6 +153,7 @@ class LauncherSettings(context: Context) {
             .putInt("weather_interval_min", s.weatherIntervalMin)
             .putString("nav_app", s.navApp)
             .putBoolean("nav_priority", s.navPriority)
+            .putBoolean("nav_show_map", s.navShowMap)
             .putString("music_app", s.musicApp)
             .putBoolean("music_auto_detect", s.musicAutoDetect)
             .putBoolean("show_artwork", s.showArtwork)

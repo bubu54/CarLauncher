@@ -112,7 +112,8 @@ fun AutoWidget(
             // Navegación activa con prioridad
             settings.navPriority && navigationData.isNavigating -> {
                 NavigationWidget(
-                    navigation = navigationData
+                    navigation = navigationData,
+                    gps = gpsController.data
                 )
             }
 

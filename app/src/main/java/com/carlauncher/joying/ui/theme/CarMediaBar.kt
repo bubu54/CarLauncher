@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -37,11 +38,16 @@ fun CarMediaBar(
 ) {
     val style = LocalLauncherStyle.current
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(62.dp)
             .launcherPanel(RoundedCornerShape(12.dp))
+    ) {
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
             .padding(horizontal = 9.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -98,6 +104,13 @@ fun CarMediaBar(
             )
         }
 
+        // Tiempo transcurrido / duración de la pista
+        if (media.hasSession) {
+            TrackTime(position = media.position, duration = media.duration)
+
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+
         // Controles
         val contentColor = if (media.hasSession) {
             style.buttonContentColor
@@ -124,6 +137,66 @@ fun CarMediaBar(
         MediaBarButton("⏭", contentColor, media.hasSession) {
             controller.next(media)
         }
+    }
+
+    // Barra de progreso fina en el borde inferior
+    if (media.hasSession && media.duration > 0L) {
+        val fraction = (media.position.toFloat() / media.duration.toFloat()).coerceIn(0f, 1f)
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(Color(0x33FFFFFF))
+        )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(fraction)
+                .height(3.dp)
+                .background(Blue)
+        )
+    }
+    }
+}
+
+/** "1:23 / 4:05" (o solo "1:23" si la duración es desconocida, como en una emisora). */
+@Composable
+private fun TrackTime(position: Long, duration: Long) {
+    val digits = TextStyle(fontFeatureSettings = "tnum")
+
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = formatTrackTime(position),
+            color = White,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            style = digits
+        )
+
+        if (duration > 0L) {
+            Text(
+                text = " / " + formatTrackTime(duration),
+                color = Secondary,
+                fontSize = 14.sp,
+                style = digits
+            )
+        }
+    }
+}
+
+private fun formatTrackTime(millis: Long): String {
+    val totalSeconds = (millis.coerceAtLeast(0L) / 1000L).toInt()
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+
+    return if (hours > 0) {
+        String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(java.util.Locale.US, "%d:%02d", minutes, seconds)
     }
 }
 

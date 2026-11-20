@@ -120,7 +120,8 @@ fun CentralWidgetPanel(
 
                 "NAVEGACIÓN" -> {
                     NavigationWidget(
-                        navigation = navigationData
+                        navigation = navigationData,
+                        gps = gpsData
                     )
                 }
 

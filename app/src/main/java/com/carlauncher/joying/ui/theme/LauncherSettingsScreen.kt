@@ -500,6 +500,16 @@ private fun NavigationSection(settings: LauncherSettings) {
         checked = s.navPriority,
         onChange = { v -> settings.update { it.copy(navPriority = v) } }
     )
+
+    RowDivider()
+
+    SettingToggle(
+        title = "Mostrar mapa en el widget de navegación",
+        subtitle = "Mapa de OpenStreetMap centrado en tu posición. Necesita Internet. " +
+                "No es el mapa de tu app de navegación: Android no permite incrustarlo.",
+        checked = s.navShowMap,
+        onChange = { v -> settings.update { it.copy(navShowMap = v) } }
+    )
 }
 
 // ─────────────────────────── MÚSICA ───────────────────────────
